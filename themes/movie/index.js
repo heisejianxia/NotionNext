@@ -23,6 +23,7 @@ import CategoryGroup from './components/CategoryGroup'
 import CategoryItem from './components/CategoryItem'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
+import { HomeBackgroundImage } from './components/HomeBackgroundImage'
 import JumpToTopButton from './components/JumpToTopButton'
 import LatestPostsGroup from './components/LatestPostsGroup'
 import SlotBar from './components/SlotBar'
@@ -46,15 +47,23 @@ const LayoutBase = props => {
   const { children, slotTop } = props
   const { onLoading, fullWidth } = useGlobal()
   const collapseRef = useRef(null)
-
+  const router = useRouter()
   const searchModal = useRef(null)
   const [expandMenu, updateExpandMenu] = useState(false)
   useEffect(() => {
     loadWowJS()
   }, [])
 
+  // 首页背景图
+  const headerSlot =
+    router.route === '/' &&
+    siteConfig('MOVIE_HOME_BACKGROUND', null, CONFIG) ? (
+      <HomeBackgroundImage />
+    ) : null
+
   return (
-    <ThemeGlobalMovie.Provider value={{ searchModal, expandMenu, updateExpandMenu, collapseRef }}>
+    <ThemeGlobalMovie.Provider
+      value={{ searchModal, expandMenu, updateExpandMenu, collapseRef }}>
       <div
         id='theme-movie'
         className={`${siteConfig('FONT_STYLE')} dark:text-gray-300 duration-300 transition-all bg-white dark:bg-[#2A2A2A] scroll-smooth min-h-screen flex flex-col justify-between`}>
@@ -62,20 +71,19 @@ const LayoutBase = props => {
 
         {/* 页头 */}
         <Header {...props} />
+        {headerSlot}
 
         {/* 主体 */}
         <div id='container-inner' className='w-full relative flex-grow z-10'>
-          {/* 标题栏 */}
-          {/* {fullWidth ? null : <Title {...props} />} */}
-
           <div
             id='container-wrapper'
             className={
-              (JSON.parse(siteConfig('LAYOUT_SIDEBAR_REVERSE')) ? 'flex-row-reverse' : '') +
-              'relative mx-auto justify-center md:flex items-start py-8 px-2'
+              (JSON.parse(siteConfig('LAYOUT_SIDEBAR_REVERSE'))
+                ? 'flex-row-reverse'
+                : '') + 'relative mx-auto justify-center md:flex items-start'
             }>
             {/* 内容 */}
-            <div className={`w-full ${fullWidth ? '' : ''} px-4`}>
+            <div className={`w-full ${fullWidth ? '' : ''} px-6`}>
               <Transition
                 show={!onLoading}
                 appear={true}
@@ -127,7 +135,11 @@ const LayoutPostList = props => {
   return (
     <div className='max-w-[90rem] mx-auto'>
       <SlotBar {...props} />
-      {siteConfig('POST_LIST_STYLE') === 'page' ? <BlogListPage {...props} /> : <BlogListScroll {...props} />}
+      {siteConfig('POST_LIST_STYLE') === 'page' ? (
+        <BlogListPage {...props} />
+      ) : (
+        <BlogListScroll {...props} />
+      )}
     </div>
   )
 }
@@ -157,7 +169,8 @@ const LayoutSlug = props => {
 
       // 创建视频区块容器元素
       const videoWrapper = document.createElement('div')
-      videoWrapper.className = 'video-wrapper py-1 px-3 bg-gray-100 dark:bg-white dark:text-black mx-auto'
+      videoWrapper.className =
+        'video-wrapper py-1 px-3 bg-gray-100 dark:bg-white dark:text-black mx-auto'
 
       // 创建走马灯封装容器元素
       const carouselWrapper = document.createElement('div')
@@ -181,17 +194,29 @@ const LayoutSlug = props => {
         if (!figCaption) return // 如果没有子元素 figcaption，则不处理该元素
 
         // 获取 figcaption 的文本内容并添加到数组中
-        const figCaptionValue = figCaption ? figCaption?.textContent?.trim() : `P-${index}`
+        const figCaptionValue = figCaption
+          ? figCaption?.textContent?.trim()
+          : `P-${index}`
         figCaptionValues.push(figCaptionValue)
 
         // 创建一个新的 div 元素用于包裹当前的 .notion-asset-wrapper 元素
         const carouselItem = document.createElement('div')
         carouselItem.classList.add('notion-carousel')
         carouselItem.appendChild(wrapper)
+
+        // 如有外链、保存在data-src中
+        const iframe = wrapper.querySelector('iframe')
+        if (iframe) {
+          iframe?.setAttribute('data-src', iframe?.getAttribute('src'))
+        }
+
         // 如果是第一个元素，设置为 active
         if (index === 0) {
           carouselItem.classList.add('active')
+        } else {
+          iframe?.setAttribute('src', '')
         }
+
         // 将元素添加到容器中
         carouselWrapper.appendChild(carouselItem)
         // 从 DOM 中移除原始的 .notion-asset-wrapper 元素
@@ -200,7 +225,8 @@ const LayoutSlug = props => {
 
       // 创建一个用于保存 figcaption 值的容器元素
       const figCaptionWrapper = document.createElement('div')
-      figCaptionWrapper.className = 'notion-carousel-route py-2 max-h-36 overflow-y-auto'
+      figCaptionWrapper.className =
+        'notion-carousel-route py-2 max-h-36 overflow-y-auto'
 
       // 遍历 figCaptionValues 数组，并将每个值添加到容器元素中
       figCaptionValues.forEach(value => {
@@ -209,15 +235,25 @@ const LayoutSlug = props => {
         div.addEventListener('click', function () {
           // 遍历所有的 carouselItem 元素
           document.querySelectorAll('.notion-carousel').forEach(item => {
+            // 外链保存在data-src中
+            const iframe = item.querySelector('iframe')
+
             // 判断当前元素是否包含该 figCaption 的文本内容，如果是则设置为 active，否则取消 active
             if (item.querySelector('figcaption').textContent.trim() === value) {
               item.classList.add('active')
+              if (iframe) {
+                iframe.setAttribute('src', iframe.getAttribute('data-src'))
+              }
             } else {
               item.classList.remove('active')
               // 不活跃窗口暂停播放，仅支持notion上传视频、不支持外链
               item.querySelectorAll('video')?.forEach(video => {
                 video.pause()
               })
+              // 外链通过设置src来实现视频暂停播放
+              if (iframe) {
+                iframe.setAttribute('src', '')
+              }
             }
           })
         })
@@ -228,17 +264,27 @@ const LayoutSlug = props => {
         // 将包含 figcaption 值的容器元素添加到 notion-article 的第一个子元素插入
         videoWrapper.appendChild(carouselWrapper)
         // 显示分集按钮 大于1集才显示 ；或者用户 要求强制显示
-        if (figCaptionWrapper.children.length > 1 || siteConfig('MOVIE_VIDEO_COMBINE_SHOW_PAGE_FORCE', false, CONFIG)) {
+        if (
+          figCaptionWrapper.children.length > 1 ||
+          siteConfig('MOVIE_VIDEO_COMBINE_SHOW_PAGE_FORCE', false, CONFIG)
+        ) {
           videoWrapper.appendChild(figCaptionWrapper)
         }
         // 放入页面
-        notionArticle.insertBefore(videoWrapper, notionArticle.firstChild)
+        if (
+          notionArticle.firstChild &&
+          notionArticle.contains(notionArticle.firstChild)
+        ) {
+          notionArticle.insertBefore(videoWrapper, notionArticle.firstChild)
+        } else {
+          notionArticle.appendChild(videoWrapper)
+        }
       }
     }
 
     setTimeout(() => {
       combineVideo()
-    }, 2000)
+    }, 1500)
 
     // 404
     if (!post) {
@@ -270,7 +316,9 @@ const LayoutSlug = props => {
   return (
     <>
       {!lock ? (
-        <div id='article-wrapper' className='px-2 max-w-5xl 2xl:max-w-[70%] mx-auto'>
+        <div
+          id='article-wrapper'
+          className='px-2 max-w-5xl 2xl:max-w-[70%] mx-auto'>
           {/* 标题 */}
           <ArticleInfo post={post} />
           {/* 页面元素 */}
@@ -385,7 +433,11 @@ const LayoutArchive = props => {
     <>
       <div className='mb-10 pb-20 md:py-12 p-3  min-h-screen w-full'>
         {Object.keys(archivePosts).map(archiveTitle => (
-          <BlogListGroupByDate key={archiveTitle} archiveTitle={archiveTitle} archivePosts={archivePosts} />
+          <BlogListGroupByDate
+            key={archiveTitle}
+            archiveTitle={archiveTitle}
+            archivePosts={archivePosts}
+          />
         ))}
       </div>
     </>
